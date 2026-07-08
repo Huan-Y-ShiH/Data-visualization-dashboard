@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据中心运行监控大屏</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+<div class="dashboard">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>数据中心运行监控大屏</h1>
+    <div class="time">数据范围：<span id="dr"></span> | 实时监控</div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-container">
+    <div class="kpi-card"><div class="label">物理主机</div><div class="value" id="kv1">--</div><div class="unit">台</div></div>
+    <div class="kpi-card"><div class="label">监控指标</div><div class="value" id="kv2">--</div><div class="unit">个</div></div>
+    <div class="kpi-card"><div class="label">数据总量</div><div class="value" id="kv3">--</div><div class="unit">条</div></div>
+    <div class="kpi-card"><div class="label">采集天数</div><div class="value" id="kv4">--</div><div class="unit">天</div></div>
+  </div>
+
+  <!-- Row 1: CPU + Location -->
+  <div class="panel col-2" style="grid-column:span 2">
+    <div class="panel-header"><h3>CPU 使用率概览 (avg%)</h3></div>
+    <div class="panel-body"><div id="c1" class="chart"></div></div>
+  </div>
+  <div class="panel col-2" style="grid-column:span 2">
+    <div class="panel-header"><h3>机房分布</h3></div>
+    <div class="panel-body"><div id="c2" class="chart"></div></div>
+  </div>
+
+  <!-- Row 2: Memory + Network -->
+  <div class="panel col-2" style="grid-column:span 2">
+    <div class="panel-header"><h3>内存使用分布 (MB)</h3></div>
+    <div class="panel-body"><div id="c3" class="chart"></div></div>
+  </div>
+  <div class="panel col-2" style="grid-column:span 2">
+    <div class="panel-header"><h3>网络流量 (MB/s)</h3></div>
+    <div class="panel-body"><div id="c4" class="chart"></div></div>
+  </div>
+
+  <!-- Row 3: Disk + Load -->
+  <div class="panel col-2" style="grid-column:span 2">
+    <div class="panel-header"><h3>磁盘 IO 使用率 (%, A盘)</h3></div>
+    <div class="panel-body"><div id="c5" class="chart"></div></div>
+  </div>
+  <div class="panel col-2" style="grid-column:span 2">
+    <div class="panel-header"><h3>系统负载 (1min / 5min / 15min)</h3></div>
+    <div class="panel-body"><div id="c6" class="chart"></div></div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">HISMARTLAB 数据中心监控系统 | 数据来源: disk_tsar + pref_tsar</div>
+</div>
+
+<script src="js/dashboard.js"></script>
+</body>
+</html>
