@@ -1,9 +1,13 @@
 /**
  * 数据中心监控大屏 - 主JavaScript
  * 使用 ECharts 5.5 渲染所有图表
+ * 数据模式：优先从 MySQL API (localhost:3000) 获取，失败则使用内嵌数据
  */
 
-// ===== 内嵌数据 =====
+var API = 'http://localhost:3000';
+var USE_API = false;
+
+// ===== 内嵌数据（API 不可用时的后备数据）=====
 var OVERVIEW = {hosts:20, metrics:55, dateRange:'2026-07-01 ~ 2026-08-11', totalRecords:79200};
 
 var HOST_LIST = [
@@ -91,6 +95,30 @@ var NET_BY_HOST = {
   host019:{net_in:41.26,net_out:72.24},host020:{net_in:19.68,net_out:74.06}
 };
 
+// Disk data
+var DISK_BY_HOST = {
+  host001:{sda_util:52.16,sda_await:30.86,sda_read:106048,sda_write:177255},
+  host002:{sda_util:52.19,sda_await:31.26,sda_read:166123,sda_write:156144},
+  host003:{sda_util:52.64,sda_await:31.22,sda_read:154526,sda_write:115486},
+  host004:{sda_util:52.14,sda_await:31.21,sda_read:102144,sda_write:124205},
+  host005:{sda_util:52.28,sda_await:31.43,sda_read:142106,sda_write:197636},
+  host006:{sda_util:48.16,sda_await:30.86,sda_read:106048,sda_write:177255},
+  host007:{sda_util:65.68,sda_await:31.26,sda_read:166123,sda_write:156144},
+  host008:{sda_util:16.47,sda_await:31.22,sda_read:154526,sda_write:115486},
+  host009:{sda_util:90.68,sda_await:31.21,sda_read:102144,sda_write:124205},
+  host010:{sda_util:92.04,sda_await:31.43,sda_read:142106,sda_write:197636},
+  host011:{sda_util:52.16,sda_await:30.86,sda_read:106048,sda_write:177255},
+  host012:{sda_util:52.19,sda_await:31.26,sda_read:166123,sda_write:156144},
+  host013:{sda_util:52.64,sda_await:31.22,sda_read:154526,sda_write:115486},
+  host014:{sda_util:52.14,sda_await:31.21,sda_read:102144,sda_write:124205},
+  host015:{sda_util:52.28,sda_await:31.43,sda_read:142106,sda_write:197636},
+  host016:{sda_util:48.16,sda_await:30.86,sda_read:106048,sda_write:177255},
+  host017:{sda_util:65.68,sda_await:31.26,sda_read:166123,sda_write:156144},
+  host018:{sda_util:16.47,sda_await:31.22,sda_read:154526,sda_write:115486},
+  host019:{sda_util:90.68,sda_await:31.21,sda_read:102144,sda_write:124205},
+  host020:{sda_util:92.04,sda_await:31.43,sda_read:142106,sda_write:197636}
+};
+
 // Load average
 var LOAD_BY_HOST = {
   host001:{load1:12.77,load5:9.51,load15:1.43},host002:{load1:10.44,load5:0.4,load15:0.38},
@@ -106,15 +134,87 @@ var LOAD_BY_HOST = {
 };
 
 
+// ===== API 数据加载 =====
+function fetchFromAPI() {
+  return Promise.all([
+    fetch(API + '/api/overview').then(r => r.json()),
+    fetch(API + '/api/cpu').then(r => r.json()),
+    fetch(API + '/api/memory').then(r => r.json()),
+    fetch(API + '/api/network').then(r => r.json()),
+    fetch(API + '/api/disk').then(r => r.json()),
+    fetch(API + '/api/load').then(r => r.json()),
+    fetch(API + '/api/hosts').then(r => r.json())
+  ]);
+}
+
+function mergeHostList(apiHosts) {
+  // Build host list from API data with English field names for chart compatibility
+  var map = {};
+  HOST_LIST.forEach(function(h) { map[h.id] = h; });
+  return apiHosts.map(function(r) {
+    return {
+      id: r.host_id,
+      name: r.hostname,
+      owner: r.owner,
+      model: r.model,
+      location: r.location1,
+      rack: r.location2
+    };
+  });
+}
+
+function applyLocationToCpu(cpuData) {
+  // Merge location from HOST_LIST into cpu data
+  var hostMap = {};
+  HOST_LIST.forEach(function(h) { hostMap[h.id] = h; });
+  Object.keys(cpuData).forEach(function(id) {
+    if (hostMap[id]) {
+      cpuData[id].location = hostMap[id].location;
+    }
+  });
+}
+
 // ===== Chart rendering =====
 document.addEventListener('DOMContentLoaded', function() {
-  initKPI();
-  initCpuChart();
-  initLocationPie();
-  initMemoryChart();
-  initNetworkChart();
-  initDiskChart();
-  initLoadChart();
+  // Try API first
+  fetchFromAPI()
+    .then(function(results) {
+      var apiOverview = results[0];
+      var apiCpu = results[1];
+      var apiMem = results[2];
+      var apiNet = results[3];
+      var apiDisk = results[4];
+      var apiLoad = results[5];
+      var apiHosts = results[6];
+
+      USE_API = true;
+      document.getElementById('ds').textContent = 'MySQL数据库';
+      document.getElementById('ds').style.color = '#00e676';
+
+      // Swap internal data with API data
+      OVERVIEW = apiOverview;
+      HOST_LIST = mergeHostList(apiHosts);
+      CPU_BY_HOST = apiCpu;
+      MEM_BY_HOST = apiMem;
+      NET_BY_HOST = apiNet;
+      DISK_BY_HOST = apiDisk;
+      LOAD_BY_HOST = apiLoad;
+      applyLocationToCpu(CPU_BY_HOST);
+    })
+    .catch(function(err) {
+      console.log('API 不可用，使用内嵌数据:', err.message);
+      document.getElementById('ds').textContent = '内嵌静态数据';
+      document.getElementById('ds').style.color = '#ffab00';
+    })
+    .finally(function() {
+      initKPI();
+      initCpuChart();
+      initLocationPie();
+      initMemoryChart();
+      initNetworkChart();
+      initDiskChart();
+      initLoadChart();
+    });
 });
 
 function initKPI() {
@@ -199,11 +299,12 @@ function initNetworkChart() {
 }
 
 function initDiskChart() {
-  var hosts = Object.keys(CPU_BY_HOST).sort();
-  var data = hosts.map(function(h){ return +(Math.random()*60+20).toFixed(2); });
+  var hosts = Object.keys(DISK_BY_HOST).sort();
+  var data = hosts.map(function(h){ return DISK_BY_HOST[h].sda_util || 0; });
   var c = makeChart('c5');
   c.setOption({
-    tooltip:{trigger:'axis'},grid:{left:60,right:20,top:20,bottom:30},
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
+    grid:{left:60,right:20,top:20,bottom:30},
     xAxis:{type:'category',data:hosts,axisLabel:{rotate:45,fontSize:10,color:'#888'}},
     yAxis:{type:'value',name:'%',max:100,axisLabel:{color:'#888'}},
     series:[{type:'bar',data:data,itemStyle:{color:function(p){
